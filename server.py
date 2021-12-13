@@ -31,7 +31,7 @@ Metoda POST:
     W ciele zapytania należy umieścić również informacje w formacie JSON definiujące przekazywany wpis danego typu.
     Np. dla metody 'POST', username: srubka, password: gwint oraz content_type: pressure
     
-    POST /patient?username=srubka?password=gwint HTTP/1.1
+    POST /patient?username=srubka&password=gwint HTTP/1.1
     entry_type: pressure
     
     {
