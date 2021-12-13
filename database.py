@@ -13,10 +13,10 @@ conn = sqlite3.connect('medical_registry.sqlite3')
 conn.row_factory = sqlite3.Row
 cur = conn.cursor()
 
-cur.execute("DROP TABLE IF EXISTS Patient")
-cur.execute("DROP TABLE IF EXISTS Pressure")
-cur.execute("DROP TABLE IF EXISTS Temperature")
-cur.execute("DROP TABLE IF EXISTS Credentials")
+# cur.execute("DROP TABLE IF EXISTS Patient")
+# cur.execute("DROP TABLE IF EXISTS Pressure")
+# cur.execute("DROP TABLE IF EXISTS Temperature")
+# cur.execute("DROP TABLE IF EXISTS Credentials")
 
 cur.execute('''CREATE TABLE IF NOT EXISTS Patient
             (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT UNIQUE,
@@ -145,50 +145,9 @@ def fake_fill_db():
     insert_pressure(124.5, 81.2, year=2021, month=1, day=1, hour=0, minute=3, patient_id=last_id)
     insert_pressure(134.5, 91.0, year=2021, month=3, day=17, hour=7, minute=50, patient_id=last_id)
 
-
-fake_fill_db()
-
-
-# def get(last_name, first_name):  # NOQA
-#     # password = hash_password(password)
-#     cur.execute('''SELECT Patient.id, Patient.last_name, Patient.first_name, Patient.date_of_birth, Patient.registration_timestamp
-#             FROM Patient WHERE Patient.last_name=? AND Patient.first_name=?''', (last_name, first_name))
-#
-#     patient_row = cur.fetchone()
-#     if patient_row is None:
-#         print(f"Patient: {last_name} {first_name} not in register!")
-#         return None
-#
-#     patient_dict = {"Patient": {'last_name': patient_row['last_name'],
-#                                 'first_name': patient_row['first_name'],
-#                                 'date_of_birth': patient_row['date_of_birth'],
-#                                 'registration_timestamp': patient_row['registration_timestamp'],
-#                                 'Pressure': [],
-#                                 'Temperature': []}}
-#
-#     patient_id = patient_row['id']
-#
-#     cur.execute('''SELECT press_acquisition, systolic, diastolic, press_entry_timestamp
-#             FROM Pressure WHERE patient_id=?''', (patient_id,))
-#
-#     for press_row in cur.fetchall():
-#         patient_dict["Patient"]['Pressure'].append({'acquisition': press_row['press_acquisition'],
-#                                                     'systolic': press_row['systolic'],
-#                                                     'diastolic': press_row['diastolic'],
-#                                                     'entry_timestamp': press_row['press_entry_timestamp']})
-#
-#     cur.execute('''SELECT temp_acquisition, value, temp_entry_timestamp
-#                 FROM Temperature WHERE patient_id=?''', (patient_id,))
-#
-#     for temp_row in cur.fetchall():
-#         patient_dict["Patient"]['Temperature'].append({'acquisition': temp_row['temp_acquisition'],
-#                                                        'value': temp_row['value'],
-#                                                        'entry_timestamp': temp_row['temp_entry_timestamp']})
-#
-#     return json.dumps(patient_dict, indent=4)
+# fake_fill_db()
 
 def get(patient_id: int):  # NOQA
-    # password = hash_password(password)
     cur.execute('''SELECT Patient.id, Patient.last_name, Patient.first_name, Patient.date_of_birth, Patient.registration_timestamp
             FROM Patient WHERE Patient.id=?''', (patient_id,))
 
@@ -203,8 +162,6 @@ def get(patient_id: int):  # NOQA
                                 'registration_timestamp': patient_row['registration_timestamp'],
                                 'Pressure': [],
                                 'Temperature': []}}
-
-    # patient_id = patient_row['id']
 
     cur.execute('''SELECT press_acquisition, systolic, diastolic, press_entry_timestamp
             FROM Pressure WHERE patient_id=?''', (patient_id,))
