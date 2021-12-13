@@ -35,10 +35,8 @@ elif operation == 'POST':
             except ValueError:
                 pass
 
-        print("Wrong acquisition timestamp! Please enter positive integer values in demanded format. Try again",
-              file=sys.stderr)
+        print("Wrong acquisition timestamp! Please enter positive integer values in demanded format. Try again")
 
-    # timestamp_d = {unit: int(value) for unit, value in zip(["year", "month", "day", "hour", "minute"])}
     if entry_type == 'pressure':
         while True:
             systolic = input("Enter systolic pressure value: ")
@@ -49,7 +47,7 @@ elif operation == 'POST':
             except ValueError:
                 pass
 
-            print("Wrong pressure values! Please enter positive, floating point values. Try again", file=sys.stderr)
+            print("Wrong pressure values! Please enter positive, floating point values. Try again")
 
         pre_json_dict = {'systolic': systolic,
                          'diastolic': diastolic,
@@ -64,7 +62,7 @@ elif operation == 'POST':
             except ValueError:
                 pass
 
-            print("Wrong temperature value! Please enter positive, floating point value. Try again", file=sys.stderr)
+            print("Wrong temperature value! Please enter positive, floating point value. Try again")
 
         pre_json_dict = {'value': value,
                          'acquisition': date_time_raw}
