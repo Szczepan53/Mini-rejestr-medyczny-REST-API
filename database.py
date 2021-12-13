@@ -5,6 +5,31 @@ import datetime
 import hashlib
 
 
+"""
+Moduł inicjalizujący bazę danych w SQLite i zarządzający nią. Fukcje zdefiniowane w module udostępniają 
+serwerowi (server.py) interfejs do komunikacji z bazą danych.
+Zdefiniowana baza danych zawiera następujące tablice: 
+    >Patient - zawiera dane o zarejestrowanych pacjentach (nazwisko, imię, data urodzenia itp.), 
+    każdy pacjent przypisany jest do dokładnie jednego rekordu w Credentials (1:1)
+     
+    >Pressure - zawiera dane o wprowadzonych pomiarach ciśnienia, każdy rekord w Pressure przypisany jest do dokładnie
+    jednego pacjenta, ale wiele różnych rekordów może byc przypisanych do tego samego pacjenta (1:n)
+    
+    >Temperature - zawiera dane o wprowadzonych pomiarach temperatury, każdy rekord w Temperature przypisany jest do
+    dokładnie jednego rekordu w Patient (1:n)
+    
+    >Credentials - zawiera dane logowania pacjenta (login, hasło). Hasło przechowywane
+     jest w postaci zhaszowanej (funkcja hash_password korzystająca z hashlib).
+    
+Inicjalizacja zachodzi podczas importu tego modułu w module server.py, jeżeli tablica Credentials jest pusta, to
+wywołana zostaje funkcja fake_fill_db() wprowadzająca do bazy danych dane 3 testowych pacjentów:
+
+    > Andrzej Mamut
+    > Jan Kowalski
+    > Anna Nowak
+"""
+
+
 class SecurityError(Exception):
     pass
 
@@ -13,7 +38,6 @@ MEDICAL_REGISTRY = 'medical_registry.sqlite3'
 conn = sqlite3.connect(MEDICAL_REGISTRY)
 conn.row_factory = sqlite3.Row
 cur = conn.cursor()
-
 
 # cur.execute("DROP TABLE IF EXISTS Patient")
 # cur.execute("DROP TABLE IF EXISTS Pressure")
@@ -140,7 +164,7 @@ def insert_temperature(value: float, year: int, month: int, day: int, hour: int,
 
 def fake_fill_db():
     cred_id = register('admin', 'admin')
-    last_id = insert_patient('Żelazo', 'Radosław', 1999, 4, 25, cred_id)
+    last_id = insert_patient('Mamut', 'Andrzej', 1985, 9, 4, cred_id)
 
     insert_temperature(36.7, year=2021, month=12, day=12, hour=16, minute=31, patient_id=last_id)
     insert_temperature(37.8, year=2021, month=12, day=12, hour=18, minute=14, patient_id=last_id)
@@ -223,7 +247,10 @@ def disconnect():
     conn.close()
 
 
-# fake_fill_db()
+if cur.execute("SELECT COUNT(*) FROM Credentials").fetchone()[0] == 0:
+    fake_fill_db()
+    print("Database set up")
+
 conn.close()
 
 

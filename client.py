@@ -2,6 +2,43 @@ import socket
 import sys
 import json
 
+"""
+Klient łączący się z serwerem (server.py). Przekształca wprowadzone przez użytkownika w terminalu dane na zapytanie
+HTTP i wysyła je do serwera, a następnie nasłuchuje odpowiedzi z serwera i wyświetla odpowiedź w terminalu.
+
+1. Klient po uruchomieniu w terminalu zapyta o dane logowanie użytkownika próbującego uzyskać dostęp do bazy danych na 
+serwerze:
+
+    > username:password
+    można testować uzyskiwanie dostępu do bazy danych na serwerze korzystając z poniższych danych logowania
+    (zostają wprowadzone do bazy danych jako Credentials testowych pacjentów w trakcie jej inicjalizacji w database.py):
+    
+    (Andrzej Mamut) | admin:admin   
+    (Jan Kowalski)  | jan:kowalski63
+    (Anna Nowak)    | anna:nowak81
+
+2. Następnie zapyta o metodę zapytania które ma sformułować:
+    metody dostępne poprzez klienta:
+        > 'GET'  - żądanie danych pacjenta zarejestrowanego już w bazie danych, (poprawne żądanie zwraca z serwera dane
+        dotyczące pacjenta w formacie JSON)
+        
+        > 'POST' - wprowadzenie nowego wpisu do bazy przechowywanej na serwerze:
+            * patient - rejestracja nowego pacjenta (podany w 1. username nie może być już obecny w bazie danych
+                        na serwerze - serwer odmówi ponownej rejestracji pacjenta dla tego samego username)
+            
+            * pressure - wprowadzenie do bazy danych nowego wpisu pomiaru ciśnienia (pomiar zostanie przypisany 
+                         pacjentowi któremu przypisane są podane w 1. dane logowania username:password)
+                         
+            * temperature - wprowadzenie do bazy danych nowego wpisu pomiaru temperatury (pomiar zostanie przypisany 
+                         pacjentowi któremu przypisane są podane w 1. dane logowania username:password)
+            
+2b. Jeśli wybrana została metoda 'POST' to klient odpytuje użytkownika o dane definiujące wpis danego typu 
+(np. dla wpisu pomiaru ciśnienia: wartość pomiaru ciśnienia skurczowego, rozkurczowego, kiedy został wykonany pomiar)
+
+3. Klient na podstawie wprowadzonych danych formułuje zapytanie do serwera i wysyła je, a następnie odbiera odpowiedź
+zwrotną i ją wyświetla. 
+"""
+
 username = input("Please enter username: ")
 password = input("Please enter password: ")
 method = input("GET or POST?: ").strip().upper()
