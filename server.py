@@ -1,30 +1,90 @@
 import json
 import socket
+import sqlite3
 import sys
-
+from urllib import parse
 import database as db
-import hashlib
+
+"""Moduł server.py służy jako main"""
 
 SERVER_ADDRESS = 'localhost'
 SERVER_PORT = 9000
 
 response_dict = {'ok_plain': 'HTTP/1.1 200 OK\r\nContent-type: text/plain\r\n',
                  'ok_json': 'HTTP/1.1 200 OK\r\nContent-Type : application/json\r\n',
-                 'access_denied': "HTTP/1.1 403 Forbidden\r\nContent-type: text/plain\r\n\r\nAccess denied!\nInvalid username or password\r\n",
-                 'missing_entry_type': "HTTP/1.1 400 Bad Request\r\nContent-type: text/plain\r\n\r\nMissing 'entry_type' header\r\n",
-                 'missing_entry_value': "HTTP/1.1 400 Bad Request\r\nContent-type: text/plain\r\n\r\nAt least one of entry values is missing\r\n",
-                 'bad_entry_value': "HTTP/1.1 400 Bad Request\r\nContent-type: text/plain\r\n\r\nAt least one of entry values is bad\r\n"
+                 'access_denied': 'HTTP/1.1 401 Unauthorized\r\nContent-type: text/plain\r\n\r\nAccess denied!\nInvalid username or password\r\n',
+                 'already_registered': 'HTTP/1.1 403 Forbidden\r\nContent-type: text/plain\r\n\r\nPatient already registered\r\n',
+                 'bad_request_method': 'HTTP/1.1 400 Bad Request\r\nContent-type: text/plain\r\n\r\nBad request method, try GET or POST\r\n',
+                 'missing_entry_type': 'HTTP/1.1 400 Bad Request\r\nContent-type: text/plain\r\n\r\nMissing \'entry_type\' header\r\n',
+                 'bad_entry_type': 'HTTP/1.1 400 Bad Request\r\nContent-type: text/plain\r\n\r\nBad \'entry_type\' header value\r\n',
+                 'missing_entry_value': 'HTTP/1.1 400 Bad Request\r\nContent-type: text/plain\r\n\r\nAt least one of entry values is missing\r\n',
+                 'bad_entry_value': 'HTTP/1.1 400 Bad Request\r\nContent-type: text/plain\r\n\r\nAt least one of entry values is bad\r\n',
+                 'bad_request_path': 'HTTP/1.1 400 Bad Request\r\nContent-type: text/plain\r\n\r\nBad request url path\r\n'
                  }
 
 
-def error_shutdown_connection(ex: Exception, conn, response: str):
-    print(ex, file=sys.stderr)
-    conn.sendall(response.encode())
-    conn.shutdown(socket.SHUT_WR)
+class HTTPRequestException(Exception):
+    pass
+
+
+class InvalidRequestPathException(HTTPRequestException):
+    pass
+
+
+class FaviconRequestException(InvalidRequestPathException):
+    pass
+
+
+class UnsupportedMethodException(HTTPRequestException):
+    pass
+
+
+def success_message(message):
+    print("SUCCESS", 30 * "-", message, 30 * "-", sep="\n")
+
+
+def error_message(message):
+    print("ERROR", 30 * "^", message, 30 * "^", sep="\n")
+
+
+def error_shutdown_connection(ex: Exception, connection, response: str):
+    error_message(ex)
+    connection.sendall(response.encode())
+    connection.shutdown(socket.SHUT_WR)
+
+
+def parse_request(req):
+    headers_raw, body_raw = req.split('\r\n\r\n')
+    first_line, *headers_rest = headers_raw.split('\r\n')
+    first_line_split = first_line.split(" ")
+
+    req_method = first_line_split[0]
+    urlParsed = parse.urlparse(first_line_split[1])
+    path = urlParsed.path
+    # print(50*'-')
+    # print(path)
+    # print(50*'-')
+
+    if not (req_method == "GET" or req_method == "POST"):
+        raise UnsupportedMethodException(f"Unsupported request method: {req_method}")
+
+    if path == '/favicon.ico':
+        raise FaviconRequestException()
+    #
+    if not (path == '/patient'):
+        raise InvalidRequestPathException(f"Invalid request path: {path}")
+
+    query = urlParsed.query.split("&")
+    query_dict = {pair.split("=")[0]: pair.split("=")[1] for pair in query}
+    headers_tmp = [tuple(map(str.strip, elem.split(':'))) for elem in headers_rest]
+    headers = {header[0].lower(): header[1].strip() for header in headers_tmp}
+
+    return req_method, path, query_dict, headers, body_raw
 
 
 def create_server():
     serverSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    conn = db.connect(db.MEDICAL_REGISTRY)
     try:
         serverSocket.bind((SERVER_ADDRESS, SERVER_PORT))
         serverSocket.listen(5)
@@ -32,26 +92,78 @@ def create_server():
             (connection, address) = serverSocket.accept()
             req = connection.recv(4096).decode()
             print(req)  # DEBUG
-            headers_raw, body_raw = req.split('\r\n\r\n')
-            headers_pieces = [s for s in headers_raw.split("\r\n") if s]
-            headers_tmp = [tuple(map(str.strip, elem.split(':'))) for elem in headers_pieces[1:]]
-            headers = {header[0].lower(): header[1].strip() for header in headers_tmp}
-            username = headers['username']
-            password = headers['password']
+            try:
+                req_method, path, query_dict, headers, body_raw = parse_request(req)
+
+            except FaviconRequestException:
+                connection.shutdown(socket.SHUT_RDWR)  # ignore favicon.ico request from browser
+                continue
+
+            except InvalidRequestPathException as ex:
+                error_shutdown_connection(ex, connection, response_dict['bad_request_path'])
+                continue
+
+            except UnsupportedMethodException as ex:
+                error_shutdown_connection(ex, connection, response_dict['bad_request_method'])
+                continue
+
+            username = query_dict['username']
+            password = query_dict['password']
+
+            print(headers)  # DEBUG
             try:
                 patient_id = db.validate_user(username, password)
 
             except db.SecurityError as ex:
-                error_shutdown_connection(ex, connection, response_dict['access_denied'])
-                continue
+                try:
+                    if req_method != 'POST' or headers['entry_type'] != 'patient':
+                        error_shutdown_connection(ex, connection, response_dict['access_denied'])
+                        continue
+                except KeyError as ex:
+                    error_shutdown_connection(ex, connection, response_dict['missing_entry_type'])
+                    continue
 
-            if headers_pieces[0].startswith('GET'):
+                else:
+                    try:
+                        entry_dict = json.loads(body_raw.strip())
+                        last_name = entry_dict['last_name']
+                        first_name = entry_dict['first_name']
+                        date_of_birth = {unit: int(value.strip()) for unit, value in
+                                         zip(["year", "month", "day"], entry_dict['date_of_birth'].split('/'))}
+
+                        cred_id = db.register(username, password)
+                        db.insert_patient(last_name, first_name, credentials_id=cred_id,
+                                          **date_of_birth)  # if successful commits changes to db
+
+                    except KeyError as ex:
+                        error_shutdown_connection(ex, connection, response_dict['missing_entry_value'])
+                        continue
+                    except ValueError as ex:
+                        error_shutdown_connection(ex, connection, response_dict['bad_entry_value'])
+                        continue
+                    except sqlite3.Error as ex:
+                        error_shutdown_connection(ex, connection, response_dict['already_registered'])
+                        conn.rollback()  # undo changes to database if something went wrong in insert_patient()
+                        continue
+
+                    resp = response_dict['ok_plain']
+                    resp += "\r\n"
+                    resp += f"User {username}:{password} successfully registered\n"
+                    resp += f'Entry: {headers["entry_type"]}\n' + body_raw + "\nsuccessfully added to database!\n"
+                    connection.sendall(resp.encode())
+                    connection.shutdown(socket.SHUT_WR)
+                    success_message(
+                        f"Registered new user: {username}\nadded new patient {last_name} {first_name} to database.")
+                    continue
+
+            if req_method == 'GET':
                 patient_data = db.get(patient_id)
                 resp = response_dict['ok_json']
                 resp += '\r\n'
-                resp += patient_data
+                resp += patient_data + "\n"
+                message = f"Retrieved data for user {username} from database"
 
-            elif headers_pieces[0].startswith("POST"):
+            else:  # req_method = 'POST'
                 try:
                     entry_type = headers['entry_type'].lower()
                 except KeyError as ex:
@@ -61,8 +173,9 @@ def create_server():
                 entry_dict = json.loads(body_raw.strip())
                 if entry_type == 'pressure' or entry_type == 'temperature':
                     try:
-                        timestamp = entry_dict['acquisition']
-                        timestamp = {unit: int(value.strip()) for unit, value in zip(["year", "month", "day", "hour", "minute"], timestamp.split('/'))}
+                        timestamp = {unit: int(value.strip()) for unit, value in
+                                     zip(["year", "month", "day", "hour", "minute"],
+                                         entry_dict['acquisition'].split('/'))}
 
                         if entry_type == 'pressure':
                             systolic = float(entry_dict['systolic'])
@@ -72,6 +185,8 @@ def create_server():
                         elif entry_type == 'temperature':
                             value = float(entry_dict['value'])
                             db.insert_temperature(value, patient_id=patient_id, **timestamp)
+
+                        message = f"Inserted new: {entry_type} entry for user: {username}"
 
                     except KeyError as ex:
                         error_shutdown_connection(ex, connection, response_dict['missing_entry_value'])
@@ -83,10 +198,21 @@ def create_server():
 
                     resp = response_dict['ok_plain']
                     resp += '\r\n'
-                    resp += f'Entry: {entry_type}\n' + body_raw + "\nsuccessfully added to database!"
+                    resp += f'Entry: {entry_type}\n' + body_raw + "\nsuccessfully added to database!\n"
+
+                elif entry_type == 'patient':
+                    error_shutdown_connection(ValueError(f"User {username} already registered!"),
+                                              connection, response_dict['already_registered'])
+                    continue
+
+                else:
+                    error_shutdown_connection(ValueError("Invalid entry_type value!"),
+                                              connection, response_dict['bad_entry_type'])
+                    continue
 
             connection.sendall(resp.encode())
             connection.shutdown(socket.SHUT_WR)
+            success_message(message)
 
     except KeyboardInterrupt:
         print("\nShutting down...\n")
@@ -95,10 +221,11 @@ def create_server():
         print("Error:\n")
         print(ex, file=sys.stderr)
 
-    serverSocket.close()
+    finally:
+        serverSocket.close()
+        conn.close()
 
 
 if __name__ == '__main__':
     print(f"Access http://{SERVER_ADDRESS}:{SERVER_PORT}")
     create_server()
-

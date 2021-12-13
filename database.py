@@ -9,9 +9,11 @@ class SecurityError(Exception):
     pass
 
 
-conn = sqlite3.connect('medical_registry.sqlite3')
+MEDICAL_REGISTRY = 'medical_registry.sqlite3'
+conn = sqlite3.connect(MEDICAL_REGISTRY)
 conn.row_factory = sqlite3.Row
 cur = conn.cursor()
+
 
 # cur.execute("DROP TABLE IF EXISTS Patient")
 # cur.execute("DROP TABLE IF EXISTS Pressure")
@@ -51,22 +53,38 @@ cur.execute('''CREATE TABLE IF NOT EXISTS Credentials(
                 UNIQUE (username))''')
 
 
+def validate_date(date):
+    if (datetime.datetime.now().date() - date).days < 0:
+        raise ValueError("The date is from the future")
+
+
+def validate_timestamp(timestamp):
+    if (datetime.datetime.now() - timestamp).total_seconds() < 0:
+        raise ValueError("The timestamp is from the future")
+
+
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
 
 
 def register(username, password) -> int:
+    """Need to call conn.commit() after or conn.rollback() if something went wrong"""
     password = hash_password(password)
-    cred_id = None
     try:
         cur.execute('''INSERT INTO Credentials (username, password) VALUES (?, ?)''', (username, password))
         cred_id = cur.lastrowid
+        return cred_id
+
+    except sqlite3.IntegrityError:
+        raise sqlite3.IntegrityError('User already registered!')
+
+
+def delete_user(cred_id):
+    try:
+        cur.execute('''DELETE FROM Credentials WHERE id=?''', (cred_id,))
         conn.commit()
-
-    except sqlite3.IntegrityError as ex:
-        print("User already registered")
-
-    return cred_id
+    except sqlite3.IntegrityError:
+        raise sqlite3.IntegrityError('User not yet registered!')
 
 
 def validate_user(username: str, password: str) -> int:
@@ -82,6 +100,8 @@ def validate_user(username: str, password: str) -> int:
 
 def insert_patient(last_name: str, first_name: str, year: int, month: int, day: int, credentials_id: int) -> int:
     try:
+        day_of_birth = sqlite3.Date(year, month, day)
+        validate_date(day_of_birth)     # raises ValueError if day_of_birth is from the future
         cur.execute('''INSERT INTO Patient (last_name, first_name, date_of_birth, credentials_id) VALUES (?, ?, ?, ?)''',
                     (last_name, first_name, sqlite3.Date(year, month, day), credentials_id))
         conn.commit()
@@ -97,16 +117,23 @@ def insert_patient(last_name: str, first_name: str, year: int, month: int, day: 
 
 def insert_pressure(systolic: float, diastolic: float, year: int, month: int, day: int, hour: int, minute: int,
                     patient_id: int) -> int:
+
+    timestamp = sqlite3.Timestamp(year=year, month=month, day=day, hour=hour, minute=minute)
+    validate_timestamp(timestamp)   # raises ValueError if timestamp is from the future
+
     cur.execute('''INSERT INTO Pressure (systolic, diastolic, press_acquisition, patient_id) VALUES (?, ?, ?, ?)''',
-                (systolic, diastolic, sqlite3.Timestamp(year=year, month=month, day=day, hour=hour, minute=minute),
-                 patient_id))
+                (systolic, diastolic, timestamp, patient_id))
     conn.commit()
     return patient_id
 
 
 def insert_temperature(value: float, year: int, month: int, day: int, hour: int, minute: int, patient_id: int) -> int:
+
+    timestamp = sqlite3.Timestamp(year=year, month=month, day=day, hour=hour, minute=minute)
+    validate_timestamp(timestamp)   # raises ValueError if timestamp is from the future
+
     cur.execute('''INSERT INTO Temperature (value, temp_acquisition, patient_id) VALUES (?, ?, ?)''',
-                (value, sqlite3.Timestamp(year=year, month=month, day=day, hour=hour, minute=minute), patient_id))
+                (value, timestamp, patient_id))
     conn.commit()
     return patient_id
 
@@ -145,7 +172,8 @@ def fake_fill_db():
     insert_pressure(124.5, 81.2, year=2021, month=1, day=1, hour=0, minute=3, patient_id=last_id)
     insert_pressure(134.5, 91.0, year=2021, month=3, day=17, hour=7, minute=50, patient_id=last_id)
 
-# fake_fill_db()
+    conn.commit()
+
 
 def get(patient_id: int):  # NOQA
     cur.execute('''SELECT Patient.id, Patient.last_name, Patient.first_name, Patient.date_of_birth, Patient.registration_timestamp
@@ -164,7 +192,7 @@ def get(patient_id: int):  # NOQA
                                 'Temperature': []}}
 
     cur.execute('''SELECT press_acquisition, systolic, diastolic, press_entry_timestamp
-            FROM Pressure WHERE patient_id=?''', (patient_id,))
+            FROM Pressure WHERE patient_id=? ORDER BY press_acquisition DESC ''', (patient_id,))
 
     for press_row in cur.fetchall():
         patient_dict["Patient"]['Pressure'].append({'acquisition': press_row['press_acquisition'],
@@ -173,7 +201,7 @@ def get(patient_id: int):  # NOQA
                                                     'entry_timestamp': press_row['press_entry_timestamp']})
 
     cur.execute('''SELECT temp_acquisition, value, temp_entry_timestamp
-                FROM Temperature WHERE patient_id=?''', (patient_id,))
+                FROM Temperature WHERE patient_id=? ORDER BY temp_acquisition DESC''', (patient_id,))
 
     for temp_row in cur.fetchall():
         patient_dict["Patient"]['Temperature'].append({'acquisition': temp_row['temp_acquisition'],
@@ -183,11 +211,30 @@ def get(patient_id: int):  # NOQA
     return json.dumps(patient_dict, indent=4)
 
 
-if __name__ == '__main__':
-    username = input("Please enter username: ")
-    password = input("Please enter password: ")
-    print(username, password)
-    patient_id = validate_user(username, password)
-    result = get(patient_id)
-    print(result)
+def connect(db_path):
+    global conn, cur
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
+    cur.row_factory = sqlite3.Row
+    return conn
+
+
+def disconnect():
     conn.close()
+
+
+# fake_fill_db()
+conn.close()
+
+
+# if __name__ == '__main__':
+#     try:
+#         conn = sqlite3.connect(MEDICAL_REGISTRY)
+#         username = input("Please enter username: ")
+#         password = input("Please enter password: ")
+#         print(username, password)
+#         patient_id = validate_user(username, password)
+#         result = get(patient_id)
+#         print(result)
+#     finally:
+#         conn.close()
