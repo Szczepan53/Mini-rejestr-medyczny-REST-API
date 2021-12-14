@@ -186,9 +186,9 @@ def fake_fill_db():
     insert_temperature(37.8, year=2021, month=12, day=12, hour=18, minute=14, patient_id=last_id)
     insert_temperature(39.1, year=2020, month=9, day=1, hour=10, minute=20, patient_id=last_id)
 
-    insert_pressure(119.8, 76.6, year=2021, month=12, day=12, hour=16, minute=24, patient_id=last_id)
-    insert_pressure(124.5, 81.2, year=2021, month=12, day=12, hour=19, minute=11, patient_id=last_id)
-    insert_pressure(122.0, 79.1, year=2021, month=4, day=5, hour=11, minute=11, patient_id=last_id)
+    insert_pressure(131.2, 91.6, year=2021, month=12, day=12, hour=16, minute=24, patient_id=last_id)
+    insert_pressure(129.4, 89.1, year=2021, month=12, day=12, hour=19, minute=11, patient_id=last_id)
+    insert_pressure(134.7, 91.1, year=2021, month=4, day=5, hour=11, minute=11, patient_id=last_id)
 
     cred_id = register('anna', 'nowak81')
     last_id = insert_patient('Nowak', 'Anna', 1981, 2, 28, cred_id)
