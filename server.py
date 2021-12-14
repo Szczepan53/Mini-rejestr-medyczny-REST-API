@@ -4,6 +4,7 @@ import sqlite3
 import sys
 from urllib import parse
 import database as db
+import traceback
 
 """Moduł server.py pełni rolę serwera udostępniającego interfejs REST-API (metody 'GET' oraz 'POST') do 
 rejestru medycznego (bazy danych z pacjentami i pomiarami) zdefiniowanego w database.py.
@@ -68,7 +69,8 @@ response_dict = {'ok_plain': 'HTTP/1.1 200 OK\r\nContent-type: text/plain\r\n',
                  'bad_entry_type': 'HTTP/1.1 400 Bad Request\r\nContent-type: text/plain\r\n\r\nBad \'entry_type\' header value\r\n',
                  'missing_entry_value': 'HTTP/1.1 400 Bad Request\r\nContent-type: text/plain\r\n\r\nAt least one of entry values is missing\r\n',
                  'bad_entry_value': 'HTTP/1.1 400 Bad Request\r\nContent-type: text/plain\r\n\r\nAt least one of entry values is bad\r\n',
-                 'bad_request_path': 'HTTP/1.1 400 Bad Request\r\nContent-type: text/plain\r\n\r\nBad request url path\r\n'
+                 'bad_request_path': 'HTTP/1.1 400 Bad Request\r\nContent-type: text/plain\r\n\r\nBad request url path\r\n',
+                 'bad_request': 'HTTP/1.1 400 Bad Request\r\nContent-type: text/plain\r\n\r\nBad request url\r\n'
                  }
 
 
@@ -106,6 +108,8 @@ def parse_request(req):
     headers_raw, body_raw = req.split('\r\n\r\n')
     first_line, *headers_rest = headers_raw.split('\r\n')
     first_line_split = first_line.split(" ")
+    if len(first_line_split) < 1:
+        raise HTTPRequestException("Bad request")
 
     req_method = first_line_split[0]
     urlParsed = parse.urlparse(first_line_split[1])
@@ -121,9 +125,19 @@ def parse_request(req):
         raise InvalidRequestPathException(f"Invalid request path: {path}")
 
     query = urlParsed.query.split("&")
-    query_dict = {pair.split("=")[0]: pair.split("=")[1] for pair in query}
-    headers_tmp = [tuple(map(str.strip, elem.split(':'))) for elem in headers_rest]
-    headers = {header[0].lower(): header[1].strip() for header in headers_tmp}
+
+    try:
+        query_dict = {pair.split("=")[0]: pair.split("=")[1] for pair in query}
+        if 'username' not in query_dict or 'password' not in query_dict:
+            raise HTTPRequestException('Missing username and/or password in request URL queries')
+    except IndexError:
+        raise HTTPRequestException('Missing username and/or password in request URL queries')
+
+    try:
+        headers_tmp = [tuple(map(str.strip, elem.split(':'))) for elem in headers_rest]
+        headers = {header[0].lower(): header[1].strip() for header in headers_tmp}
+    except IndexError:
+        raise HTTPRequestException('Bad request')
 
     return req_method, path, query_dict, headers, body_raw
 
@@ -151,6 +165,10 @@ def create_server():
 
             except UnsupportedMethodException as ex:
                 error_shutdown_connection(ex, connection, response_dict['bad_request_method'])
+                continue
+
+            except HTTPRequestException as ex:
+                error_shutdown_connection(ex, connection, response_dict['bad_request'])
                 continue
 
             username = query_dict['username']
@@ -264,7 +282,8 @@ def create_server():
 
     except Exception as ex:
         print("Error:\n")
-        print(ex, file=sys.stderr)
+        traceback.print_exc()
+        print("Error:\n")
 
     finally:
         serverSocket.close()

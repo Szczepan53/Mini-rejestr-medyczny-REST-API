@@ -10,7 +10,8 @@ Moduł inicjalizujący bazę danych w SQLite i zarządzający nią. Fukcje zdefi
 serwerowi (server.py) interfejs do komunikacji z bazą danych.
 Zdefiniowana baza danych zawiera następujące tablice: 
     >Patient - zawiera dane o zarejestrowanych pacjentach (nazwisko, imię, data urodzenia itp.), 
-    każdy pacjent przypisany jest do dokładnie jednego rekordu w Credentials (1:1)
+    każdy pacjent przypisany jest do dokładnie jednego rekordu w Credentials i każdy rekord w Credentials odpowiada
+    tylko jednemu pacjentowi (1:1)
      
     >Pressure - zawiera dane o wprowadzonych pomiarach ciśnienia, każdy rekord w Pressure przypisany jest do dokładnie
     jednego pacjenta, ale wiele różnych rekordów może byc przypisanych do tego samego pacjenta (1:n)
@@ -82,9 +83,13 @@ def validate_date(date):
         raise ValueError("The date is from the future")
 
 
-def validate_timestamp(timestamp):
+def validate_timestamp(timestamp, patient_id):
     if (datetime.datetime.now() - timestamp).total_seconds() < 0:
         raise ValueError("The timestamp is from the future")
+    date_of_birth = sqlite3.Date(*map(int, cur.execute("SELECT date_of_birth FROM Patient WHERE id=?",
+                                                       (patient_id,)).fetchone()[0].split('-')))
+    if (timestamp.date() - date_of_birth).days < 0:
+        raise ValueError("The timestamp is from before the day of birth of the patient")
 
 
 def hash_password(password):
@@ -143,7 +148,7 @@ def insert_pressure(systolic: float, diastolic: float, year: int, month: int, da
                     patient_id: int) -> int:
 
     timestamp = sqlite3.Timestamp(year=year, month=month, day=day, hour=hour, minute=minute)
-    validate_timestamp(timestamp)   # raises ValueError if timestamp is from the future
+    validate_timestamp(timestamp, patient_id)   # raises ValueError if timestamp is from the future or from before patient's birth
 
     cur.execute('''INSERT INTO Pressure (systolic, diastolic, press_acquisition, patient_id) VALUES (?, ?, ?, ?)''',
                 (systolic, diastolic, timestamp, patient_id))
@@ -154,7 +159,7 @@ def insert_pressure(systolic: float, diastolic: float, year: int, month: int, da
 def insert_temperature(value: float, year: int, month: int, day: int, hour: int, minute: int, patient_id: int) -> int:
 
     timestamp = sqlite3.Timestamp(year=year, month=month, day=day, hour=hour, minute=minute)
-    validate_timestamp(timestamp)   # raises ValueError if timestamp is from the future
+    validate_timestamp(timestamp, patient_id)   # raises ValueError if timestamp is from the future or from before patient's birth
 
     cur.execute('''INSERT INTO Temperature (value, temp_acquisition, patient_id) VALUES (?, ?, ?)''',
                 (value, timestamp, patient_id))
