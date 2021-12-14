@@ -91,11 +91,11 @@ class UnsupportedMethodException(HTTPRequestException):
 
 
 def success_message(message):
-    print("SUCCESS", 30 * "-", message, 30 * "-", sep="\n")
+    print("SUCCESS", 50 * "-", message, 50 * "-", sep="\n")
 
 
 def error_message(message):
-    print("ERROR", 30 * "^", message, 30 * "^", sep="\n")
+    print("ERROR", 50 * "^", message, 50 * "v", sep="\n")
 
 
 def error_shutdown_connection(ex: Exception, connection, response: str):
@@ -154,9 +154,10 @@ def create_server():
         serverSocket.bind((SERVER_ADDRESS, SERVER_PORT))
         serverSocket.listen(5)
         while True:
+            print('\nready...\n')
             (connection, address) = serverSocket.accept()
             req = connection.recv(4096).decode()
-            print(req)  # DEBUG
+            # print(req)  # DEBUG
             try:
                 req_method, path, query_dict, headers, body_raw = parse_request(req)
 
@@ -180,11 +181,12 @@ def create_server():
             password = query_dict['password']
 
             try:
+
                 patient_id = db.validate_user(username, password)
 
             except db.SecurityError as ex:
                 try:
-                    if req_method != 'POST' or headers['entry_type'] != 'patient':
+                    if req_method != 'POST' or headers['entry_type'] != 'patient' or not username or not password:
                         error_shutdown_connection(ex, connection, response_dict['access_denied'])
                         continue
                 except KeyError as ex:
