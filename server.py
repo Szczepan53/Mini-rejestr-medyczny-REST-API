@@ -105,9 +105,14 @@ def error_shutdown_connection(ex: Exception, connection, response: str):
 
 
 def parse_request(req):
-    headers_raw, body_raw = req.split('\r\n\r\n')
+    try:
+        headers_raw, body_raw = req.split('\r\n\r\n')
+    except ValueError:
+        raise HTTPRequestException("Bad request")
+
     first_line, *headers_rest = headers_raw.split('\r\n')
     first_line_split = first_line.split(" ")
+
     if len(first_line_split) < 1:
         raise HTTPRequestException("Bad request")
 
