@@ -182,7 +182,7 @@ def create_server():
 
             try:
 
-                patient_id = db.validate_user(username, password)
+                patient_id, fernet = db.validate_user(username, password)
 
             except db.SecurityError as ex:
                 try:
@@ -201,8 +201,8 @@ def create_server():
                         date_of_birth = {unit: int(value.strip()) for unit, value in
                                          zip(["year", "month", "day"], entry_dict['date_of_birth'].split('/'))}
 
-                        cred_id = db.register(username, password)
-                        db.insert_patient(last_name, first_name, credentials_id=cred_id,
+                        cred_id, fernet = db.register(username, password)
+                        db.insert_patient(last_name, first_name, credentials_id=cred_id, fernet=fernet
                                           **date_of_birth)  # if successful commits changes to db
 
                     except KeyError as ex:
@@ -227,7 +227,7 @@ def create_server():
                     continue
 
             if req_method == 'GET':
-                patient_data = db.get(patient_id)
+                patient_data = db.get(patient_id, fernet)
                 resp = response_dict['ok_json']
                 resp += '\r\n'
                 resp += patient_data + "\n"
@@ -250,11 +250,11 @@ def create_server():
                         if entry_type == 'pressure':
                             systolic = float(entry_dict['systolic'])
                             diastolic = float(entry_dict['diastolic'])
-                            db.insert_pressure(systolic, diastolic, patient_id=patient_id, **timestamp)
+                            db.insert_pressure(systolic, diastolic, patient_id=patient_id, fernet=fernet, **timestamp)
 
                         elif entry_type == 'temperature':
                             value = float(entry_dict['value'])
-                            db.insert_temperature(value, patient_id=patient_id, **timestamp)
+                            db.insert_temperature(value, patient_id=patient_id, fernet=fernet, **timestamp)
 
                         message = f"Inserted new: {entry_type} entry for user: {username}"
 
@@ -287,7 +287,7 @@ def create_server():
     except KeyboardInterrupt:
         print("\nShutting down...\n")
 
-    except Exception as ex:
+    except Exception:
         print("Error:\n")
         traceback.print_exc()
         print("Error:\n")
