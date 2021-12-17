@@ -47,11 +47,9 @@ req = f'{method} /patient?username={username}&password={password} HTTP/1/1\r\n'
 
 
 if method == 'GET':
-    # req = req.format(method, '/patient', username, password)
     req += '\r\n'
 
 elif method == 'POST':
-    # req = req.format(method, '/patient', username, password)
 
     while True:
         entry_type = input("Enter entry type (patient/pressure/temperature): ").strip().lower()

@@ -9,6 +9,13 @@ import traceback
 """Moduł server.py pełni rolę serwera udostępniającego interfejs REST-API (metody 'GET' oraz 'POST') do 
 rejestru medycznego (bazy danych z pacjentami i pomiarami) zdefiniowanego w database.py.
 
+Zaimplementowany interfejs umożliwia:
+    > odpytanie serwera o dane pacjenta (GET)
+    > rejestrację nowego pacjenta (POST)
+    > wprowadzenie do bazy wpisu dotyczącego pomiaru ciśnienia (POST)
+    > wprowadzenie do bazy wpisu dotyczącego pomiaru temperatury (POST)
+
+
 Ścieżka (path) URL musi być:
     '/patient'
 
@@ -125,7 +132,7 @@ def parse_request(req):
 
     if path == '/favicon.ico':
         raise FaviconRequestException()
-    #
+
     if not (path == '/patient'):
         raise InvalidRequestPathException(f"Invalid request path: {path}")
 
@@ -157,7 +164,7 @@ def create_server():
             print('\nready...\n')
             (connection, address) = serverSocket.accept()
             req = connection.recv(4096).decode()
-            # print(req)  # DEBUG
+
             try:
                 req_method, path, query_dict, headers, body_raw = parse_request(req)
 
@@ -203,7 +210,7 @@ def create_server():
 
                         cred_id, fernet = db.register(username, password)
                         db.insert_patient(last_name, first_name, credentials_id=cred_id, fernet=fernet,
-                                          **date_of_birth)  # if successful commits changes to db
+                                          **date_of_birth)  # if successful then commits changes to db
 
                     except KeyError as ex:
                         error_shutdown_connection(ex, connection, response_dict['missing_entry_value'])
@@ -233,7 +240,7 @@ def create_server():
                 resp += patient_data + "\n"
                 message = f"Retrieved data for user {username} from database"
 
-            else:  # req_method = 'POST'
+            else:  # do stuff for 'POST' request method
                 try:
                     entry_type = headers['entry_type'].lower()
                 except KeyError as ex:

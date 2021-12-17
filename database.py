@@ -2,10 +2,7 @@ import sqlite3
 import json
 import sys
 import datetime
-import hashlib
-
 import cryptography.fernet
-
 import encryption as enc
 
 """
@@ -14,23 +11,27 @@ serwerowi (server.py) interfejs do komunikacji z bazą danych.
 Zdefiniowana baza danych zawiera następujące tablice: 
     >Patient - zawiera dane o zarejestrowanych pacjentach (nazwisko, imię, data urodzenia itp.), 
     każdy pacjent przypisany jest do dokładnie jednego rekordu w Credentials i każdy rekord w Credentials odpowiada
-    tylko jednemu pacjentowi (1:1)
+    tylko jednemu pacjentowi (1:1).
+    Rekordy zawarte w Patient podlegają szyfrowaniu hasłem pacjenta.
      
     >Pressure - zawiera dane o wprowadzonych pomiarach ciśnienia, każdy rekord w Pressure przypisany jest do dokładnie
-    jednego pacjenta, ale wiele różnych rekordów może byc przypisanych do tego samego pacjenta (1:n)
+    jednego pacjenta, ale wiele różnych rekordów może byc przypisanych do tego samego pacjenta (1:n).
+    Rekordy zawarte w Pressure nie podlegają szyfrowaniu.
     
     >Temperature - zawiera dane o wprowadzonych pomiarach temperatury, każdy rekord w Temperature przypisany jest do
-    dokładnie jednego rekordu w Patient (1:n)
+    dokładnie jednego rekordu w Patient (1:n).
+    Rekordy zawarte w Temperature nie podlegają szyfrowaniu.
+
     
-    >Credentials - zawiera dane logowania pacjenta (login, hasło). Hasło przechowywane
-     jest w postaci zhaszowanej (funkcja hash_password korzystająca z hashlib).
+    >Credentials - zawiera dane logowania pacjenta (login, hasło).
+     Rekordy zawarte w Credentials podlegają szyfrowaniu hasłem pacjenta.
     
 Inicjalizacja zachodzi podczas importu tego modułu w module server.py, jeżeli tablica Credentials jest pusta, to
 wywołana zostaje funkcja fake_fill_db() wprowadzająca do bazy danych dane 3 testowych pacjentów:
 
-    > Andrzej Mamut
-    > Jan Kowalski
-    > Anna Nowak
+    > Andrzej Mamut (username=admin, password=admin)
+    > Jan Kowalski (username=jan, password=kowalski63)
+    > Anna Nowak (username=anna, password=nowak81)
 """
 
 
@@ -90,18 +91,13 @@ def validate_timestamp(timestamp, patient_id, fernet):
     if (datetime.datetime.now() - timestamp).total_seconds() < 0:
         raise ValueError("The timestamp is from the future")
     date_of_birth = sqlite3.Date(*map(int, fernet.decrypt(cur.execute("SELECT date_of_birth FROM Patient WHERE id=?",
-                                                       (patient_id,)).fetchone()[0]).decode().split('-')))
+                                                                      (patient_id,)).fetchone()[0]).decode().split('-')))
     if (timestamp.date() - date_of_birth).days < 0:
         raise ValueError("The timestamp is from before the day of birth of the patient")
 
 
-def hash_password(password):
-    return hashlib.sha256(password.encode()).hexdigest()
-
-
 def register(username, password) -> int:
     """Need to call conn.commit() after or conn.rollback() if something went wrong"""
-    # password = hash_password(password)
     fernet = enc.make_Fernet(password)
 
     cur.execute('''SELECT id, username, password FROM Credentials''')
@@ -119,22 +115,14 @@ def register(username, password) -> int:
         return cred_id, fernet
 
 
-def delete_user(cred_id):
-    try:
-        cur.execute('''DELETE FROM Credentials WHERE id=?''', (cred_id,))
-        conn.commit()
-    except sqlite3.IntegrityError:
-        raise sqlite3.IntegrityError('User not yet registered!')
-
-
 def validate_user(username: str, password: str) -> int:
-    # password = hash_password(password)
     fernet = enc.make_Fernet(password)
 
     cur.execute('''SELECT id, username, password FROM Credentials''')
     for row in cur:
         try:
-            if fernet.decrypt(row['username']).decode() == username and fernet.decrypt(row['password']).decode() == password:
+            if fernet.decrypt(row['username']).decode() == username and fernet.decrypt(
+                    row['password']).decode() == password:
                 cred_id = row['id']
                 break
         except cryptography.fernet.InvalidToken:

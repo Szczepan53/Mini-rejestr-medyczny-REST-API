@@ -4,11 +4,21 @@
 Moduł server.py pełni rolę serwera udostępniającego interfejs REST-API (metody 'GET' oraz 'POST') do 
 rejestru medycznego (bazy danych z pacjentami i pomiarami) zdefiniowanego w database.py.
 
+Zaimplementowany interfejs umożliwia:
+
+    >odpytanie serwera o dane pacjenta (GET)
+    >rejestrację nowego pacjenta (POST)
+    >wprowadzenie do bazy wpisu dotyczącego pomiaru ciśnienia (POST)
+    >wprowadzenie do bazy wpisu dotyczącego pomiaru temperatury (POST)
+
+###Składnia requesta
 Ścieżka (path) URL musi być:
+
     '/patient'
 
 Autoryzacja klienta:
-    username i password przekazywane jako 'queries' w URL zapytania, np. dla:
+
+    username i password przekazywane są jako 'queries' w URL zapytania, np. dla:
      
     username: admin
     password: 12345 
@@ -17,6 +27,7 @@ Autoryzacja klienta:
     GET /patient?username=admin&password=12345 HTTP/1.1
 
 Metoda POST:
+
     Dla metody 'POST' niezbędne jest przekazanie w nagłówku zapytania atrybutu 'entry_type' określającego typ wpisu, 
     który próbujemy wprowadzić do bazy danych (czy jest to pomiar ciśnienia, temperatury czy może nowy pacjent).
     Możliwe wartości atrybutu:

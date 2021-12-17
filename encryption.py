@@ -30,5 +30,4 @@ def make_key(password: str) -> bytes:
 
 
 def make_Fernet(password: str):
-    f = Fernet(make_key(password))
-    return f
+    return Fernet(make_key(password))
