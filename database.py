@@ -3,6 +3,9 @@ import json
 import sys
 import datetime
 import hashlib
+
+import cryptography.fernet
+
 import encryption as enc
 
 """
@@ -100,15 +103,20 @@ def register(username, password) -> int:
     """Need to call conn.commit() after or conn.rollback() if something went wrong"""
     # password = hash_password(password)
     fernet = enc.make_Fernet(password)
-    username = fernet.encrypt(username.encode())
-    password = fernet.encrypt(password.encode())
-    try:
+
+    cur.execute('''SELECT id, username, password FROM Credentials''')
+    for row in cur:
+        try:
+            if fernet.decrypt(row['username']).decode() == username:
+                raise sqlite3.IntegrityError('User already registered!')
+        except (cryptography.fernet.InvalidToken, TypeError):
+            pass
+    else:
+        username = fernet.encrypt(username.encode())
+        password = fernet.encrypt(password.encode())
         cur.execute('''INSERT INTO Credentials (username, password) VALUES (?, ?)''', (username, password))
         cred_id = cur.lastrowid
         return cred_id, fernet
-
-    except sqlite3.IntegrityError:
-        raise sqlite3.IntegrityError('User already registered!')
 
 
 def delete_user(cred_id):
@@ -122,13 +130,19 @@ def delete_user(cred_id):
 def validate_user(username: str, password: str) -> int:
     # password = hash_password(password)
     fernet = enc.make_Fernet(password)
-    username = fernet.encrypt(username.encode())
-    password = fernet.encrypt(password.encode())
 
-    cred_id = cur.execute('''SELECT id FROM Credentials WHERE username=? and password=?''',
-                          (username, password)).fetchone()
+    cur.execute('''SELECT id, username, password FROM Credentials''')
+    for row in cur:
+        try:
+            if fernet.decrypt(row['username']).decode() == username and fernet.decrypt(row['password']).decode() == password:
+                cred_id = row['id']
+                break
+        except cryptography.fernet.InvalidToken:
+            pass
+    else:
+        cred_id = None
+
     if cred_id is not None:
-        cred_id = cred_id[0]
         patient_id = cur.execute('''SELECT id FROM Patient WHERE credentials_id=?''', (cred_id,)).fetchone()[0]
         return patient_id, fernet
     else:
@@ -231,9 +245,9 @@ def get(patient_id: int, fernet):  # NOQA
         print(f"Patient: {patient_id} not in register!")
         return None
 
-    patient_dict = {"Patient": {'last_name': fernet.decrypt(patient_row['last_name'].decode()),
-                                'first_name': fernet.decrypt(patient_row['first_name'].decode()),
-                                'date_of_birth': fernet.decrypt(patient_row['date_of_birth'].decode()),
+    patient_dict = {"Patient": {'last_name': fernet.decrypt(patient_row['last_name']).decode(),
+                                'first_name': fernet.decrypt(patient_row['first_name']).decode(),
+                                'date_of_birth': fernet.decrypt(patient_row['date_of_birth']).decode(),
                                 'registration_timestamp': patient_row['registration_timestamp'],
                                 'Pressure': [],
                                 'Temperature': []}}

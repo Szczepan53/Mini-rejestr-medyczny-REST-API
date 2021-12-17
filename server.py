@@ -202,7 +202,7 @@ def create_server():
                                          zip(["year", "month", "day"], entry_dict['date_of_birth'].split('/'))}
 
                         cred_id, fernet = db.register(username, password)
-                        db.insert_patient(last_name, first_name, credentials_id=cred_id, fernet=fernet
+                        db.insert_patient(last_name, first_name, credentials_id=cred_id, fernet=fernet,
                                           **date_of_birth)  # if successful commits changes to db
 
                     except KeyError as ex:
