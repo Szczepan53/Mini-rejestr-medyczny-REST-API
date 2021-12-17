@@ -1,6 +1,6 @@
-#Mini rejestr medyczny z interfejsem REST API 
+# Mini rejestr medyczny z interfejsem REST API 
 
-##API
+## API
 Moduł server.py pełni rolę serwera udostępniającego interfejs REST-API (metody 'GET' oraz 'POST') do 
 rejestru medycznego (bazy danych z pacjentami i pomiarami) zdefiniowanego w database.py.
 
@@ -11,7 +11,7 @@ Zaimplementowany interfejs umożliwia:
     >wprowadzenie do bazy wpisu dotyczącego pomiaru ciśnienia (POST)
     >wprowadzenie do bazy wpisu dotyczącego pomiaru temperatury (POST)
 
-###Składnia requesta
+### Składnia requesta
 Ścieżka (path) URL musi być:
 
     '/patient'
