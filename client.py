@@ -143,7 +143,11 @@ SERVER_ADDRESS = 'localhost'
 SERVER_PORT = 9000
 
 clientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-clientSocket.connect((SERVER_ADDRESS, SERVER_PORT))
+try:
+    clientSocket.connect((SERVER_ADDRESS, SERVER_PORT))
+except ConnectionRefusedError:
+    print(f"\nThe server at {SERVER_ADDRESS}:{SERVER_PORT} is offline\n")
+    sys.exit(-1)
 
 clientSocket.send(req.encode())
 
