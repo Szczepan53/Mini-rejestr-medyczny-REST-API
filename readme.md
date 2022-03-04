@@ -6,10 +6,10 @@ rejestru medycznego (bazy danych z pacjentami i pomiarami) zdefiniowanego w data
 
 Zaimplementowany interfejs umożliwia:
 
-    >odpytanie serwera o dane pacjenta (GET)
-    >rejestrację nowego pacjenta (POST)
-    >wprowadzenie do bazy wpisu dotyczącego pomiaru ciśnienia (POST)
-    >wprowadzenie do bazy wpisu dotyczącego pomiaru temperatury (POST)
+- odpytanie serwera o dane pacjenta (GET)
+- rejestrację nowego pacjenta (POST)
+- wprowadzenie do bazy wpisu dotyczącego pomiaru ciśnienia (POST)
+- wprowadzenie do bazy wpisu dotyczącego pomiaru temperatury (POST)
 
 ### Składnia requesta
 Ścieżka (path) URL musi być:
